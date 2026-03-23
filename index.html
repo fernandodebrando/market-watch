@@ -928,9 +928,11 @@ async function loadAnalysis(force = false) {
     ? [...newsEl.querySelectorAll('.news-headline')].map(el => '  - ' + el.textContent).join('\n')
     : '';
 
+  const monitorados = tickers.map(t => t.label).join(', ');
+
   const prompt = `Hoje é ${today}, ${hora}.
 
-=== COTAÇÕES ATUAIS ===
+=== CARTEIRA MONITORADA ===
 ${cotacoes || 'Nenhuma cotação disponível'}
 
 === INDICADORES MACRO ===
@@ -939,32 +941,42 @@ ${macroItems || 'Nenhum indicador macro monitorado'}
 === NOTÍCIAS DO MOMENTO ===
 ${newsText || 'Notícias ainda não carregadas'}
 
-Com base em todos esses dados acima, gere uma análise de mercado para um investidor pessoa física brasileiro.
+Você é um analista de mercado brasileiro experiente. Gere uma análise completa para um investidor pessoa física.
 Retorne APENAS este JSON puro, sem markdown, sem backticks:
 
 {
   "cenario": {
-    "titulo": "Título do momento (ex: 'Cautela com juros elevados' ou 'Janela de oportunidade em renda variável')",
-    "texto": "2-3 parágrafos descrevendo o cenário atual: o que está acontecendo no mercado, como os indicadores macro se relacionam com as cotações, e o tom geral baseado nas notícias. Seja direto e objetivo.",
+    "titulo": "Título conciso do momento de mercado",
+    "texto": "3 parágrafos: (1) resumo do cenário macro atual com base nos dados, (2) como as cotações e notícias refletem esse cenário, (3) o que o investidor deve ter em mente agora.",
     "sentimento": "otimista|neutro|cauteloso|pessimista",
-    "score": 65
+    "score": 50
   },
-  "recomendacoes": [
+  "carteira": [
     {
-      "ativo": "TICKER ou CATEGORIA (ex: PETR4, FIIs, Câmbio, Cripto)",
-      "sinal": "comprar|manter|cautela",
-      "motivo": "1-2 frases explicando o raciocínio baseado nos dados atuais"
+      "ativo": "TICKER exato da carteira monitorada",
+      "sinal": "manter|reforcar|reduzir|cautela",
+      "motivo": "1-2 frases com base nos dados atuais do ativo"
     }
   ],
-  "aviso": "Lembrete curto sobre o caráter informativo da análise (1 linha)"
+  "oportunidades": [
+    {
+      "ativo": "TICKER ou nome do ativo sugerido (pode ser fora da carteira)",
+      "classe": "acao|fii|etf|cripto|renda_fixa|cambio",
+      "tese": "2-3 frases explicando POR QUE esse ativo é interessante AGORA com base no cenário atual. Seja específico.",
+      "risco": "baixo|medio|alto"
+    }
+  ],
+  "aviso": "Este conteúdo é gerado por IA e tem caráter exclusivamente informativo. Não constitui recomendação de investimento."
 }
 
-Regras:
-- Analise APENAS os ativos presentes nas cotações acima
-- Base as recomendações nos dados reais fornecidos (cotações + macro + notícias)
-- Seja equilibrado: nem excessivamente otimista nem alarmista
-- score: 0 = muito pessimista, 50 = neutro, 100 = muito otimista
-- Máximo de ${Math.min(tickers.length, 6)} recomendações, priorizando os ativos com maior variação`;
+Regras críticas:
+- "carteira": comente APENAS os ativos que estão na carteira monitorada: ${monitorados}
+- "oportunidades": sugira 3 a 5 ativos que fazem sentido NO CENÁRIO ATUAL, podendo incluir ativos fora da carteira
+- Para oportunidades, prefira ativos negociados na B3 (ações, FIIs, ETFs) ou bem conhecidos no Brasil
+- Base tudo nos dados reais fornecidos acima — não invente dados
+- Seja equilibrado e realista: nem excessivamente otimista nem alarmista
+- score: 0=muito pessimista, 50=neutro, 100=muito otimista
+- sinais da carteira: "reforcar" = aumentar posição, "manter" = ok como está, "reduzir" = diminuir exposição, "cautela" = atenção/risco elevado`;
 
   try {
     const text = await callGroq(prompt);
@@ -981,17 +993,37 @@ Regras:
     const score  = Math.max(0, Math.min(100, d.cenario?.score ?? 50));
     const sentColor = score >= 65 ? '#2dd4a0' : score >= 45 ? '#7c6af7' : score >= 30 ? '#f0a05a' : '#f05a5a';
 
-    const SINAL_CLS = { comprar: 'rec-comprar', manter: 'rec-manter', cautela: 'rec-cautela' };
-    const SINAL_LBL = { comprar: '▲ COMPRAR', manter: '● MANTER', cautela: '▼ CAUTELA' };
+    const CART_CLS = { reforcar:'rec-comprar', manter:'rec-manter', reduzir:'rec-cautela', cautela:'rec-cautela' };
+    const CART_LBL = { reforcar:'▲ REFORÇAR', manter:'● MANTER', reduzir:'▼ REDUZIR', cautela:'▼ CAUTELA' };
+    const RISCO_CLS = { baixo:'color:var(--up)', medio:'color:var(--warn)', alto:'color:var(--dn)' };
+    const CLASSE_ICON = { acao:'📈', fii:'🏢', etf:'📊', cripto:'₿', renda_fixa:'🔒', cambio:'💱' };
 
-    const recsHtml = (d.recomendacoes || []).map(r => {
-      const cls = SINAL_CLS[r.sinal] || 'rec-manter';
-      const lbl = SINAL_LBL[r.sinal] || r.sinal?.toUpperCase();
+    // Carteira
+    const carteiraHtml = (d.carteira || []).map(r => {
+      const cls = CART_CLS[r.sinal] || 'rec-manter';
+      const lbl = CART_LBL[r.sinal] || r.sinal?.toUpperCase();
       return `<div class="analysis-rec">
         <span class="rec-signal ${cls}">${lbl}</span>
         <div class="rec-body">
           <div class="rec-ativo">${r.ativo}</div>
           <div class="rec-motivo">${r.motivo}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Oportunidades (ativos novos sugeridos)
+    const opHtml = (d.oportunidades || []).map(r => {
+      const icon = CLASSE_ICON[r.classe] || '•';
+      const riscoStyle = RISCO_CLS[r.risco] || 'color:var(--muted)';
+      return `<div class="analysis-rec" style="background:rgba(124,106,247,0.04);border-color:rgba(124,106,247,0.25)">
+        <span class="rec-signal rec-comprar" style="background:rgba(124,106,247,0.15);color:var(--accent2);border-color:rgba(124,106,247,0.4)">✦ NOVO</span>
+        <div class="rec-body">
+          <div class="rec-ativo" style="display:flex;align-items:center;gap:6px">
+            <span>${icon}</span>
+            <span>${r.ativo}</span>
+            <span style="font-size:10px;font-weight:400;${riscoStyle};font-family:'DM Mono',monospace;opacity:.8">risco ${r.risco}</span>
+          </div>
+          <div class="rec-motivo">${r.tese}</div>
         </div>
       </div>`;
     }).join('');
@@ -1004,17 +1036,22 @@ Regras:
           <div class="sentiment-bar"><div class="sentiment-fill" style="width:${score}%;background:${sentColor}"></div></div>
           <span class="sentiment-val" style="color:${sentColor}">${score}/100</span>
         </div>
-        <div class="analysis-text" style="margin-top:12px">${(d.cenario?.texto || '').replace(/\n/g,'<br>')}</div>
+        <div class="analysis-text" style="margin-top:12px">${(d.cenario?.texto || '').replace(/\n/g,'<br><br>')}</div>
       </div>
-      <div class="analysis-section">
-        <div class="analysis-section-title">Recomendações</div>
-        <div class="analysis-recs">${recsHtml}</div>
-      </div>
+      ${carteiraHtml ? `<div class="analysis-section">
+        <div class="analysis-section-title">Sua carteira</div>
+        <div class="analysis-recs">${carteiraHtml}</div>
+      </div>` : ''}
+      ${opHtml ? `<div class="analysis-section">
+        <div class="analysis-section-title">Oportunidades do momento</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px;font-family:'DM Mono',monospace">Ativos sugeridos com base no cenário atual — podem estar fora da sua carteira</div>
+        <div class="analysis-recs">${opHtml}</div>
+      </div>` : ''}
       ${d.aviso ? `<div style="font-size:10px;color:var(--dim);font-family:'DM Mono',monospace;padding:10px 14px;background:var(--surface2);border-radius:6px;line-height:1.5">⚠ ${d.aviso}</div>` : ''}
     `;
 
     const now = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
-    meta.textContent = `Llama 4 · ${now} · baseado em ${tickers.length} ativos`;
+    meta.textContent = `Llama 4 · ${now} · ${(d.oportunidades||[]).length} oportunidades identificadas`;
     analysisLoaded = true;
 
   } catch(e) {
