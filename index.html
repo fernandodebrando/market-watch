@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel de Mercado</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0a0a0f;--surface:#13131a;--surface2:#1a1a24;--border:#2a2a3a;--border2:#3a3a4e;
+    --text:#e8e8f0;--muted:#6e6e88;--dim:#3a3a52;
+    --up:#2dd4a0;--up-bg:rgba(45,212,160,0.08);
+    --dn:#f05a5a;--dn-bg:rgba(240,90,90,0.08);
+    --accent:#7c6af7;--accent2:#a78bfa;--accent-bg:rgba(124,106,247,0.1);
+    --warn:#f0a05a;--warn-bg:rgba(240,160,90,0.08);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh}
+  body::before{content:'';position:fixed;inset:0;
+    background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);
+    background-size:48px 48px;opacity:.18;pointer-events:none;z-index:0}
+  .app{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:0 24px 60px}
+
+  /* HEADER */
+  header{display:flex;align-items:center;justify-content:space-between;padding:22px 0;border-bottom:1px solid var(--border);margin-bottom:20px;flex-wrap:wrap;gap:12px}
+  .logo-mark{font-size:19px;font-weight:700;letter-spacing:-.04em}
+  .logo-mark span{color:var(--accent2)}
+  .logo-tag{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);border:1px solid var(--border2);padding:2px 7px;border-radius:3px;margin-left:10px}
+  .hright{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .spill{display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);border:1px solid var(--border);padding:5px 12px;border-radius:20px}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--up);box-shadow:0 0 5px var(--up)}
+  .dot.loading{background:var(--warn);box-shadow:0 0 5px var(--warn);animation:blink 1s infinite}
+  .dot.error{background:var(--dn);box-shadow:0 0 5px var(--dn)}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+  .btn{font-family:'Syne',sans-serif;font-size:12px;font-weight:500;padding:6px 14px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;transition:all .15s}
+  .btn:hover{background:var(--surface2);border-color:var(--accent);color:var(--accent2)}
+  .btn-accent{background:var(--accent-bg);border-color:var(--accent);color:var(--accent2)}
+  .btn-accent:hover{background:rgba(124,106,247,.2)}
+  .btn-sm{padding:4px 10px;font-size:11px}
+  .btn-danger{border-color:rgba(240,90,90,.4);color:var(--dn);background:var(--dn-bg)}
+  .btn-danger:hover{background:rgba(240,90,90,.15);border-color:var(--dn)}
+
+  /* CONFIG PANEL */
+  .cfg-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:18px;overflow:hidden}
+  .cfg-toggle{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;cursor:pointer;user-select:none;transition:background .12s}
+  .cfg-toggle:hover{background:var(--surface2)}
+  .cfg-toggle-left{display:flex;align-items:center;gap:10px}
+  .cfg-icon{font-size:14px;color:var(--muted)}
+  .cfg-toggle-label{font-size:12px;font-weight:600;color:var(--text)}
+  .cfg-status{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)}
+  .cfg-arrow{font-size:10px;color:var(--muted);transition:transform .2s}
+  .cfg-arrow.open{transform:rotate(180deg)}
+  .cfg-body{padding:16px 18px;border-top:1px solid var(--border)}
+  .cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:640px){.cfg-grid{grid-template-columns:1fr}}
+  .cfg-field{}
+  .cfg-label{display:block;font-size:11px;font-weight:600;color:var(--text);margin-bottom:7px}
+  .cfg-sublabel{font-weight:400;color:var(--muted);margin-left:4px}
+  .cfg-row{display:flex;gap:6px;align-items:center}
+  .cfg-input{flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--text);font-family:'DM Mono',monospace;outline:none;transition:border-color .15s;min-width:0}
+  .cfg-input:focus{border-color:var(--accent)}
+  .cfg-input::placeholder{color:var(--dim)}
+  .cfg-note{font-size:10px;color:var(--muted);margin-top:6px;line-height:1.5}
+  .cfg-note a{color:var(--accent2);text-decoration:none}
+  .cfg-note code{font-family:'DM Mono',monospace;background:var(--surface2);padding:1px 5px;border-radius:3px;font-size:10px;color:var(--warn)}
+
+  /* ADD TICKER */
+  .add-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:18px}
+  .add-title{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+  .add-tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+  .add-tab{font-size:11px;padding:4px 12px;border-radius:16px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;font-family:'Syne',sans-serif;transition:all .12s}
+  .add-tab.active{background:var(--accent-bg);border-color:var(--accent);color:var(--accent2);font-weight:500}
+  .add-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .add-input{flex:1;min-width:120px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:7px 11px;font-size:13px;color:var(--text);font-family:'DM Mono',monospace;outline:none;transition:border-color .15s;text-transform:uppercase}
+  .add-input:focus{border-color:var(--accent)}
+  .add-input::placeholder{color:var(--dim);text-transform:none}
+  .add-hint{font-size:10px;color:var(--dim);margin-top:8px;line-height:1.5;font-family:'DM Mono',monospace}
+  .add-hint b{color:var(--muted)}
+
+  /* TICKER CHIPS */
+  .chips-section{margin-bottom:18px}
+  .chips-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .chips-label{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{display:inline-flex;align-items:center;gap:5px;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;padding:4px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface);color:var(--text);cursor:default}
+  .chip-cat{font-size:9px;opacity:.6;font-weight:400}
+  .chip-x{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 0 0 2px;line-height:1;transition:color .12s}
+  .chip-x:hover{color:var(--dn)}
+  .chip.cat-acoes{border-color:rgba(126,200,240,.35);background:rgba(126,200,240,.05)}
+  .chip.cat-fii{border-color:rgba(160,224,176,.35);background:rgba(160,224,176,.05)}
+  .chip.cat-cripto{border-color:rgba(240,192,112,.35);background:rgba(240,192,112,.05)}
+  .chip.cat-macro{border-color:rgba(167,139,250,.35);background:rgba(167,139,250,.05)}
+  .chip.cat-cambio{border-color:rgba(240,144,192,.35);background:rgba(240,144,192,.05)}
+  .chip.cat-indice{border-color:rgba(192,176,240,.35);background:rgba(192,176,240,.05)}
+  .no-chips{font-size:12px;color:var(--dim);font-family:'DM Mono',monospace}
+
+  /* CARDS */
+  .sec-head{display:flex;align-items:center;gap:10px;margin:20px 0 10px}
+  .sec-head:first-child{margin-top:0}
+  .sec-label{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+  .sec-line{flex:1;height:1px;background:var(--border)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:8px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;position:relative;overflow:hidden;transition:border-color .15s}
+  .card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:2px 2px 0 0;opacity:0;transition:opacity .2s}
+  .card:hover{border-color:var(--border2)}.card:hover::after{opacity:1}
+  .card.up::after{background:var(--up)}.card.dn::after{background:var(--dn)}
+  .cticker{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:5px}
+  .cname{font-size:10px;color:var(--dim);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cval{font-family:'DM Mono',monospace;font-size:17px;font-weight:500;color:var(--text);letter-spacing:-.03em;margin-bottom:6px;line-height:1.1}
+  .badge{display:inline-flex;align-items:center;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;padding:2px 7px;border-radius:4px}
+  .badge.up{background:var(--up-bg);color:var(--up)}.badge.dn{background:var(--dn-bg);color:var(--dn)}.badge.nt{background:var(--surface2);color:var(--muted)}
+  .cnote{font-size:10px;color:var(--dim);margin-top:4px;font-family:'DM Mono',monospace}
+  .cerr{font-size:10px;color:var(--dn);font-family:'DM Mono',monospace;margin-top:4px;line-height:1.4}
+  .card-del{position:absolute;top:8px;right:8px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:12px;opacity:0;transition:opacity .15s;padding:2px}
+  .card:hover .card-del{opacity:1}
+  .card-del:hover{color:var(--dn)}
+
+  /* MACRO */
+  .mtbl{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  .mrow{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);transition:background .12s}
+  .mrow:last-child{border-bottom:none}.mrow:hover{background:var(--surface2)}
+  .mlbl{font-size:13px;color:var(--text)}.msub{font-size:10px;color:var(--muted);margin-top:2px;font-family:'DM Mono',monospace}
+  .mval{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--text);text-align:right}
+  .mdate{font-size:10px;color:var(--muted);margin-top:2px;text-align:right;font-family:'DM Mono',monospace}
+
+  /* EMPTY / SPIN */
+  .empty-msg{padding:28px;text-align:center;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:10px}
+  .spin{width:13px;height:13px;border:2px solid var(--border2);border-top-color:var(--accent2);border-radius:50%;animation:sp .6s linear infinite;display:inline-block;flex-shrink:0}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  .fade{animation:fi .2s ease}
+  @keyframes fi{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+  .disclaimer{font-size:10px;color:var(--dim);font-family:'DM Mono',monospace;text-align:center;margin-top:36px;padding-top:20px;border-top:1px solid var(--border);line-height:1.7}
+  .disclaimer a{color:var(--accent2);text-decoration:none}
+  ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+  /* NEWS */
+  .cfg-src-lbl{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer;padding:3px 8px;border-radius:4px;border:1px solid var(--border2);transition:all .12s}
+  .cfg-src-lbl:hover{border-color:var(--border2);background:var(--surface2)}
+  .cfg-src-lbl input{accent-color:var(--accent);cursor:pointer}
+  /* NEWS */
+  .news-wrap{margin-top:28px}
+  .news-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+  .news-meta{font-size:10px;color:var(--dim);font-family:'DM Mono',monospace}
+  .news-list{display:flex;flex-direction:column;gap:8px}
+  .news-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;transition:all .15s}
+  .news-card:hover{background:var(--surface2);border-color:var(--border2)}
+  .news-top{display:flex;align-items:flex-start;gap:10px}
+  .news-badge{font-size:9px;font-weight:600;font-family:'DM Mono',monospace;letter-spacing:.06em;padding:3px 7px;border-radius:3px;white-space:nowrap;flex-shrink:0;margin-top:1px}
+  .news-headline{font-size:13px;color:var(--text);line-height:1.45;flex:1}
+  .news-body{font-size:12px;color:var(--muted);line-height:1.6;margin-top:7px;padding-top:7px;border-top:1px solid var(--border)}
+  .news-tickers{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
+  .news-ticker-tag{font-size:9px;font-family:'DM Mono',monospace;padding:2px 6px;border-radius:3px;border:1px solid var(--border2);color:var(--muted)}
+  .news-loading{display:flex;align-items:center;gap:10px;padding:20px;color:var(--muted);font-size:12px;font-family:'DM Mono',monospace}
+  .news-empty{padding:20px;text-align:center;color:var(--dim);font-size:12px;font-family:'DM Mono',monospace;border:1px dashed var(--border);border-radius:10px}
+
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px 16px;font-size:12px;font-family:'DM Mono',monospace;color:var(--text);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <span class="logo-mark">MARKET<span>WATCH</span></span>
+      <span class="logo-tag">BR · REAL-TIME</span>
+    </div>
+    <div class="hright">
+      <div class="spill"><div class="dot loading" id="dot"></div><span id="stxt">iniciando</span></div>
+      <button class="btn btn-accent" onclick="refreshAll()">↻ Atualizar</button>
+    </div>
+  </header>
+
+  <!-- CONFIGURAÇÕES -->
+  <div class="cfg-wrap">
+    <div class="cfg-toggle" onclick="toggleCfg()">
+      <span class="cfg-toggle-left">
+        <span class="cfg-icon">⚙</span>
+        <span class="cfg-toggle-label">Configurações</span>
+        <span class="cfg-status" id="cfgStatus"></span>
+      </span>
+      <span class="cfg-arrow" id="cfgArrow">▼</span>
+    </div>
+    <div class="cfg-body" id="cfgBody" style="display:none">
+      <div class="cfg-grid">
+        <div class="cfg-field">
+          <label class="cfg-label">⚡ Chave brapi.dev <span class="cfg-sublabel">ações, FIIs, câmbio</span></label>
+          <div class="cfg-row">
+            <input class="cfg-input" id="brapiKey" type="text" placeholder="Cole sua chave brapi..." oninput="saveKey()"/>
+            <button class="btn btn-accent btn-sm" onclick="refreshAll()">Aplicar</button>
+          </div>
+          <div class="cfg-note">Grátis em <a href="https://brapi.dev/dashboard" target="_blank">brapi.dev/dashboard</a> · Cripto e macro funcionam sem chave</div>
+        </div>
+        <div class="cfg-field">
+          <label class="cfg-label">🤖 Chave Groq <span class="cfg-sublabel">notícias com IA · gratuito</span></label>
+          <div class="cfg-row">
+            <input class="cfg-input" id="groqKey" type="password" placeholder="gsk_..." oninput="saveGroqKey()"/>
+            <button class="btn btn-sm" onclick="testGroq()" id="groqBtn">Testar</button>
+          </div>
+          <div class="cfg-note">
+            Grátis sem cartão em <a href="https://console.groq.com" target="_blank">console.groq.com</a> · 
+            Sem proxy necessário · Llama 4 direto no browser
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD TICKER -->
+  <div class="add-box">
+    <div class="add-title">Adicionar ativo</div>
+    <div class="add-tabs">
+      <button class="add-tab active" onclick="setTab('b3',this)">Ação / FII / ETF</button>
+      <button class="add-tab" onclick="setTab('cambio',this)">Câmbio</button>
+      <button class="add-tab" onclick="setTab('gecko',this)">Cripto</button>
+      <button class="add-tab" onclick="setTab('bcb',this)">Macro (BCB)</button>
+    </div>
+
+    <!-- B3 -->
+    <div id="tab-b3">
+      <div class="add-row">
+        <input class="add-input" id="inp-b3" placeholder="ex: PETR4, MXRF11, BOVA11" onkeydown="if(event.key==='Enter')addTicker('b3')"/>
+        <button class="btn btn-accent" onclick="addTicker('b3')">+ Adicionar</button>
+      </div>
+      <div class="add-hint">
+        <b>Ações:</b> PETR4, VALE3, ITUB4, WEGE3, BBAS3 · <b>FIIs:</b> MXRF11, HGLG11, XPML11 · <b>ETFs:</b> BOVA11, IVVB11<br>
+        <b>Índices:</b> Use tickers da B3 como BOVA11 (ETF do Ibovespa). O ticker ^BVSP não é suportado pelo plano gratuito.
+      </div>
+    </div>
+
+    <!-- CÂMBIO -->
+    <div id="tab-cambio" style="display:none">
+      <div class="add-row">
+        <input class="add-input" id="inp-cambio" placeholder="ex: USD-BRL" style="text-transform:uppercase" onkeydown="if(event.key==='Enter')addTicker('cambio')"/>
+        <button class="btn btn-accent" onclick="addTicker('cambio')">+ Adicionar</button>
+      </div>
+      <div class="add-hint"><b>Pares:</b> USD-BRL · EUR-BRL · GBP-BRL · ARS-BRL · JPY-BRL · CAD-BRL · BTC-BRL<br>Fonte: AwesomeAPI — <b>gratuito, sem chave necessária</b></div>
+    </div>
+
+    <!-- CRIPTO -->
+    <div id="tab-gecko" style="display:none">
+      <div class="add-row">
+        <input class="add-input" id="inp-gecko" placeholder="ex: bitcoin, ethereum, solana" style="text-transform:lowercase;flex:1" onkeydown="if(event.key==='Enter')addTicker('gecko')"/>
+        <select id="gecko-currency" class="add-input" style="flex:0 0 80px;cursor:pointer">
+          <option value="brl">BRL</option>
+          <option value="usd">USD</option>
+        </select>
+        <button class="btn btn-accent" onclick="addTicker('gecko')">+ Adicionar</button>
+      </div>
+      <div class="add-hint"><b>IDs CoinGecko:</b> bitcoin · ethereum · solana · cardano · chainlink · polkadot · dogecoin</div>
+    </div>
+
+    <!-- BCB -->
+    <div id="tab-bcb" style="display:none">
+      <div class="add-row">
+        <select class="add-input" id="inp-bcb" style="cursor:pointer">
+          <option value="">Selecione...</option>
+          <option value="432:Selic (a.a.)">Selic (a.a.)</option>
+          <option value="13522:IPCA acum. 12m">IPCA acum. 12m</option>
+          <option value="12:CDI (diário)">CDI (diário)</option>
+          <option value="7478:INPC">INPC</option>
+          <option value="1:USD PTAX (venda)">USD PTAX (venda)</option>
+          <option value="24364:IGP-M">IGP-M</option>
+          <option value="4380:PIB mensal">PIB mensal</option>
+          <option value="28750:Desemprego (PNAD)">Desemprego (PNAD)</option>
+        </select>
+        <button class="btn btn-accent" onclick="addTicker('bcb')">+ Adicionar</button>
+      </div>
+      <div class="add-hint">Dados oficiais do <b>Banco Central do Brasil</b> · Não requer chave</div>
+    </div>
+  </div>
+
+  <!-- CHIPS -->
+  <div class="chips-section">
+    <div class="chips-head">
+      <span class="chips-label">Ativos monitorados</span>
+      <button class="btn btn-sm btn-danger" onclick="clearAll()">Limpar tudo</button>
+    </div>
+    <div class="chips" id="chipsEl"></div>
+  </div>
+
+  <!-- PAINEL PRINCIPAL -->
+  <div id="mainContent">
+    <div class="empty-msg">Adicione ativos acima para começar a monitorar.</div>
+  </div>
+
+  <!-- NOTÍCIAS -->
+  <div class="news-wrap" id="newsWrap" style="display:none">
+    <div class="sec-head">
+      <span class="sec-label">Notícias</span>
+      <div class="sec-line"></div>
+      <button class="btn btn-sm btn-accent" onclick="loadNews(true)" style="flex-shrink:0">↻ Atualizar</button>
+    </div>
+    <div class="news-meta" id="newsMeta"></div>
+    <div class="news-list" id="newsList">
+      <div class="news-loading"><div class="spin"></div> Gerando notícias...</div>
+    </div>
+  </div>
+
+  <p class="disclaimer">
+    Ações/FIIs via <a href="https://brapi.dev" target="_blank">brapi.dev</a> ·
+    Câmbio via <a href="https://economia.awesomeapi.com.br" target="_blank">AwesomeAPI</a> (gratuito) ·
+    Cripto via <a href="https://coingecko.com" target="_blank">CoinGecko</a> ·
+    Macro via <a href="https://api.bcb.gov.br" target="_blank">BCB</a><br>
+    Delay até 15 min · Não constitui recomendação de investimento ·
+    Atualizado: <span id="lastUpdate">—</span>
+  </p>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── STORAGE ───────────────────────────────────────────────────────
+// ticker entry: { id, label, src, extra, cat }
+// src: 'b3' | 'cambio' | 'gecko' | 'bcb'
+// extra: ticker string / pair / geckoId / bcb code
+let brapiKey = localStorage.getItem('mw6_key') || '';
+let groqKey  = localStorage.getItem('mw6_groq') || '';
+let tickers   = JSON.parse(localStorage.getItem('mw6_tickers') || 'null') || defaultTickers();
+let cache     = {};
+let activeTab = 'b3';
+
+function defaultTickers() {
+  return [
+    {id:'PETR4',   label:'PETR4',       src:'b3',     extra:'PETR4',   cat:'acoes'},
+    {id:'VALE3',   label:'VALE3',       src:'b3',     extra:'VALE3',   cat:'acoes'},
+    {id:'ITUB4',   label:'ITUB4',       src:'b3',     extra:'ITUB4',   cat:'acoes'},
+    {id:'BOVA11',  label:'BOVA11',      src:'b3',     extra:'BOVA11',  cat:'indice'},
+    {id:'IVVB11',  label:'IVVB11',      src:'b3',     extra:'IVVB11',  cat:'indice'},
+    {id:'MXRF11',  label:'MXRF11',      src:'b3',     extra:'MXRF11',  cat:'fii'},
+    {id:'HGLG11',  label:'HGLG11',      src:'b3',     extra:'HGLG11',  cat:'fii'},
+    {id:'USD-BRL', label:'USD-BRL',     src:'cambio', extra:'USD-BRL', cat:'cambio'},
+    {id:'bitcoin:brl', label:'BTC',     src:'gecko',  extra:'bitcoin', cur:'brl', cat:'cripto'},
+    {id:'ethereum:brl',label:'ETH',     src:'gecko',  extra:'ethereum',cur:'brl', cat:'cripto'},
+    {id:'bcb:432', label:'Selic',       src:'bcb',    extra:'432',     cat:'macro', bcbLabel:'Selic (a.a.)'},
+    {id:'bcb:13522',label:'IPCA 12m',   src:'bcb',    extra:'13522',   cat:'macro', bcbLabel:'IPCA acum. 12m'},
+  ];
+}
+
+function save() { localStorage.setItem('mw6_tickers', JSON.stringify(tickers)); }
+function saveKey()   { brapiKey = document.getElementById('brapiKey').value.trim(); localStorage.setItem('mw6_key',  brapiKey); updateCfgStatus(); }
+function saveGroqKey() { groqKey  = document.getElementById('groqKey').value.trim();  localStorage.setItem('mw6_groq', groqKey);  updateCfgStatus(); }
+
+async function testGroq() {
+  const btn = document.getElementById('groqBtn');
+  btn.textContent = 'Testando...'; btn.disabled = true;
+  try {
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + groqKey },
+      body: JSON.stringify({ model: 'meta-llama/llama-4-scout-17b-16e-instruct', max_tokens: 5, messages: [{ role:'user', content:'ok' }] })
+    });
+    if (r.ok) {
+      btn.textContent = '✓ ok!'; btn.style.color = 'var(--up)'; btn.style.borderColor = 'var(--up)';
+      toast('Groq funcionando ✓');
+    } else {
+      const d = await r.json();
+      btn.textContent = 'Erro ' + r.status;
+      btn.style.color = 'var(--dn)';
+      toast((d.error?.message || 'Erro ' + r.status).slice(0,80));
+    }
+  } catch(e) {
+    btn.textContent = 'Erro'; btn.style.color = 'var(--dn)';
+    toast('Erro: ' + e.message.slice(0,60));
+  }
+  btn.disabled = false;
+  setTimeout(() => { btn.textContent = 'Testar'; btn.style.color=''; btn.style.borderColor=''; }, 4000);
+}
+function updateCfgStatus() {
+  const parts = [];
+  if (brapiKey) parts.push('brapi ✓');
+  if (groqKey)  parts.push('groq ✓');
+  document.getElementById('cfgStatus').textContent = parts.length ? parts.join(' · ') : 'configure as chaves';
+}
+
+let cfgOpen = localStorage.getItem('mw6_cfgopen') === '1';
+function toggleCfg() {
+  cfgOpen = !cfgOpen;
+  localStorage.setItem('mw6_cfgopen', cfgOpen ? '1' : '0');
+  document.getElementById('cfgBody').style.display  = cfgOpen ? '' : 'none';
+  document.getElementById('cfgArrow').className = 'cfg-arrow' + (cfgOpen ? ' open' : '');
+}
+
+
+
+// ── TAB ───────────────────────────────────────────────────────────
+function setTab(tab, el) {
+  activeTab = tab;
+  ['b3','cambio','gecko','bcb'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = t === tab ? '' : 'none';
+  });
+  document.querySelectorAll('.add-tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ── ADD TICKER ────────────────────────────────────────────────────
+function addTicker(src) {
+  if (src === 'bcb') {
+    const sel = document.getElementById('inp-bcb');
+    const val = sel.value;
+    if (!val) return;
+    const [code, ...nameParts] = val.split(':');
+    const name = nameParts.join(':');
+    const id = 'bcb:' + code;
+    if (tickers.find(t => t.id === id)) { toast('Já adicionado'); return; }
+    tickers.push({id, label: name.split(' ')[0], src:'bcb', extra: code, cat:'macro', bcbLabel: name});
+    sel.value = '';
+  } else if (src === 'cambio') {
+    const raw = document.getElementById('inp-cambio').value.trim().toUpperCase();
+    if (!raw) return;
+    const pair = raw.includes('-') ? raw : raw.slice(0,3)+'-'+raw.slice(3);
+    if (tickers.find(t => t.id === pair)) { toast('Já adicionado'); return; }
+    tickers.push({id: pair, label: pair, src:'cambio', extra: pair, cat:'cambio'});
+    document.getElementById('inp-cambio').value = '';
+  } else if (src === 'gecko') {
+    const raw = document.getElementById('inp-gecko').value.trim().toLowerCase();
+    const cur = document.getElementById('gecko-currency').value; // 'brl' or 'usd'
+    if (!raw) return;
+    const id = raw + ':' + cur;  // e.g. "bitcoin:usd"
+    if (tickers.find(t => t.id === id)) { toast('Já adicionado'); return; }
+    const symbol = raw.slice(0,6).toUpperCase();
+    const lbl = cur === 'usd' ? symbol + '/USD' : symbol;
+    tickers.push({id, label: lbl, src:'gecko', extra: raw, cur, cat:'cripto'});
+    document.getElementById('inp-gecko').value = '';
+  } else {
+    // b3 — pode ser múltiplos separados por vírgula
+    const raw = document.getElementById('inp-b3').value.trim().toUpperCase();
+    if (!raw) return;
+    const symbols = raw.split(/[,\s]+/).filter(Boolean);
+    let added = 0;
+    symbols.forEach(sym => {
+      if (tickers.find(t => t.id === sym)) return;
+      const cat = sym.endsWith('11') ? 'fii' : sym.startsWith('BOVA') || sym.startsWith('IVVB') || sym.startsWith('IFIX') ? 'indice' : 'acoes';
+      tickers.push({id: sym, label: sym, src:'b3', extra: sym, cat});
+      added++;
+    });
+    if (!added) { toast('Já adicionado'); return; }
+    document.getElementById('inp-b3').value = '';
+  }
+  save();
+  renderChips();
+  renderMain();
+  toast('Ativo adicionado ✓');
+  setTimeout(() => loadGroup(tickers.filter(t => !cache[t.id] || cache[t.id].err)), 100);
+}
+
+function removeTicker(id) {
+  tickers = tickers.filter(t => t.id !== id);
+  delete cache[id];
+  save();
+  renderChips();
+  renderMain();
+}
+
+function clearAll() {
+  if (!confirm('Remover todos os ativos?')) return;
+  tickers = [];
+  cache = {};
+  save();
+  renderChips();
+  renderMain();
+}
+
+// ── CHIPS ─────────────────────────────────────────────────────────
+function renderChips() {
+  const el = document.getElementById('chipsEl');
+  if (!tickers.length) {
+    el.innerHTML = '<span class="no-chips">Nenhum ativo adicionado</span>';
+    return;
+  }
+  el.innerHTML = tickers.map(t => `
+    <span class="chip cat-${t.cat}">
+      ${t.label}
+      <span class="chip-cat">${t.cat}</span>
+      <button class="chip-x" onclick="removeTicker('${t.id}')" title="Remover">×</button>
+    </span>`).join('');
+}
+
+// ── FETCH ─────────────────────────────────────────────────────────
+async function apiFetch(url) {
+  const r = await fetch(url);
+  const text = await r.text();
+  if (!r.ok) throw new Error(`HTTP ${r.status}: ${text.slice(0,200)}`);
+  return JSON.parse(text);
+}
+
+async function loadGroup(group) {
+  if (!group.length) return;
+
+  // B3
+  const b3 = group.filter(t => t.src === 'b3');
+  if (b3.length) {
+    if (!brapiKey) {
+      b3.forEach(t => { cache[t.id] = {err:'configure chave brapi'}; });
+    } else {
+      // Plano gratuito brapi = 1 ticker por requisição — busca individualmente
+      await Promise.all(b3.map(async t => {
+        try {
+          const d = await apiFetch(`https://brapi.dev/api/quote/${encodeURIComponent(t.extra)}?token=${brapiKey}`);
+          const r = (d.results || [])[0];
+          if (r) {
+            cache[t.id] = {
+              value: fmtPrice(r.regularMarketPrice, t.cat),
+              name: r.shortName || '',
+              chg: r.regularMarketChangePercent,
+              note: fmtTs(r.regularMarketTime)
+            };
+          } else {
+            cache[t.id] = {err:`${t.extra}: sem resultado`};
+          }
+        } catch(e) {
+          cache[t.id] = {err: e.message.slice(0,80)};
+        }
+      }));
+    }
+  }
+
+  // Câmbio — AwesomeAPI (gratuito, sem chave, CORS liberado)
+  // Formato do par: USD-BRL → chave da resposta: USDBRL
+  const cambio = group.filter(t => t.src === 'cambio');
+  if (cambio.length) {
+    const pairs = cambio.map(t => t.extra).join(',');
+    try {
+      const d = await apiFetch(`https://economia.awesomeapi.com.br/last/${pairs}`);
+      cambio.forEach(t => {
+        const key = t.extra.replace('-','');
+        const r = d[key];
+        if (r) {
+          const bid = parseFloat(r.bid);
+          const chg = parseFloat(r.pctChange);
+          const [,to] = t.extra.split('-');
+          cache[t.id] = {
+            value: to === 'BRL' ? 'R$ '+bid.toFixed(4) : bid.toFixed(4),
+            name: r.name || t.extra,
+            chg,
+            note: new Date(parseInt(r.timestamp)*1000).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})
+          };
+        } else {
+          cache[t.id] = {err:`par ${t.extra} não encontrado`};
+        }
+      });
+    } catch(e) {
+      cambio.forEach(t => { cache[t.id] = {err:'câmbio: '+e.message.slice(0,60)}; });
+    }
+  }
+
+  // Cripto (CoinGecko) — agrupado por moeda (brl / usd)
+  const gecko = group.filter(t => t.src === 'gecko');
+  if (gecko.length) {
+    // group by currency
+    const byCur = {};
+    gecko.forEach(t => {
+      const cur = t.cur || 'brl';
+      if (!byCur[cur]) byCur[cur] = [];
+      byCur[cur].push(t);
+    });
+    for (const [cur, items] of Object.entries(byCur)) {
+      const ids = [...new Set(items.map(t => t.extra))].join(',');
+      try {
+        const d = await apiFetch(
+          `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=${cur}&include_24hr_change=true`
+        );
+        items.forEach(t => {
+          const r = d[t.extra];
+          if (r) {
+            const v   = r[cur];
+            const chg = r[`${cur}_24h_change`];
+            let val;
+            if (cur === 'usd') {
+              val = '$ ' + (v >= 1000 ? v.toLocaleString('en-US',{maximumFractionDigits:0}) : v.toFixed(2));
+            } else {
+              val = 'R$ ' + (v >= 1000 ? v.toLocaleString('pt-BR',{maximumFractionDigits:0}) : v.toFixed(2));
+            }
+            cache[t.id] = { value: val, name: t.extra, chg, note: '24h' };
+          } else {
+            cache[t.id] = {err:`${t.extra}: não encontrado`};
+          }
+        });
+      } catch(e) {
+        items.forEach(t => { cache[t.id] = {err:'gecko: '+e.message.slice(0,60)}; });
+      }
+    }
+  }
+
+  // BCB
+  const bcbList = group.filter(t => t.src === 'bcb');
+  for (const t of bcbList) {
+    try {
+      const d = await apiFetch(`https://api.bcb.gov.br/dados/serie/bcdata.sgs.${t.extra}/dados/ultimos/1?formato=json`);
+      const row = d[0];
+      if (row) {
+        cache[t.id] = {value: parseFloat(row.valor.replace(',','.')).toFixed(2)+'%', date: row.data};
+      } else {
+        cache[t.id] = {err:'sem dados BCB'};
+      }
+    } catch(e) {
+      cache[t.id] = {err:'BCB: '+e.message.slice(0,60)};
+    }
+  }
+}
+
+// ── FORMAT ────────────────────────────────────────────────────────
+function fmtPrice(v, cat) {
+  if (v == null) return '—';
+  if (cat === 'indice') return v.toLocaleString('pt-BR', {maximumFractionDigits:0});
+  return 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function fmtTs(ts) { try { return new Date(ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); } catch {return '';} }
+function chgBadge(v) {
+  if (v == null) return '<span class="badge nt">—</span>';
+  const c = v>0?'up':v<0?'dn':'nt', s = v>0?'+':'';
+  return `<span class="badge ${c}">${s}${Number(v).toFixed(2)}%</span>`;
+}
+
+// ── RENDER MAIN ───────────────────────────────────────────────────
+function renderMain() {
+  const el = document.getElementById('mainContent');
+  if (!tickers.length) {
+    el.innerHTML = '<div class="empty-msg">Adicione ativos acima para começar a monitorar.</div>';
+    return;
+  }
+
+  // Group by cat
+  const cats = ['indice','acoes','fii','cambio','cripto','macro'];
+  const catLabels = {indice:'Índices',acoes:'Ações B3',fii:'FIIs',cambio:'Câmbio',cripto:'Cripto',macro:'Macro'};
+  const macroMeta = {};
+  tickers.filter(t=>t.src==='bcb').forEach(t=>{ macroMeta[t.id]=t.bcbLabel||t.label; });
+
+  let html = '';
+
+  cats.forEach(cat => {
+    const group = tickers.filter(t => t.cat === cat);
+    if (!group.length) return;
+
+    html += `<div class="sec-head"><span class="sec-label">${catLabels[cat]}</span><div class="sec-line"></div></div>`;
+
+    if (cat === 'macro') {
+      html += `<div class="mtbl">`;
+      group.forEach(t => {
+        const c = cache[t.id];
+        const lbl = macroMeta[t.id] || t.label;
+        if (!c) {
+          html += `<div class="mrow"><div><div class="mlbl">${lbl}</div></div><div class="spin"></div></div>`;
+        } else if (c.err) {
+          html += `<div class="mrow"><div><div class="mlbl">${lbl}</div></div><div style="font-size:11px;color:var(--dn);font-family:'DM Mono',monospace">${c.err}</div></div>`;
+        } else {
+          html += `<div class="mrow fade">
+            <div><div class="mlbl">${lbl}</div><div class="msub">Banco Central</div></div>
+            <div><div class="mval">${c.value}</div><div class="mdate">${c.date||''}</div></div>
+          </div>`;
+        }
+      });
+      html += `</div>`;
+    } else {
+      html += `<div class="grid">`;
+      group.forEach(t => {
+        const c = cache[t.id];
+        if (!c) {
+          html += `<div class="card fade"><div class="cticker">${t.label}</div><div style="height:36px;display:flex;align-items:center"><div class="spin"></div></div><button class="card-del" onclick="removeTicker('${t.id}')">✕</button></div>`;
+        } else if (c.err) {
+          html += `<div class="card fade"><div class="cticker">${t.label}</div><div class="cval" style="font-size:12px;color:var(--muted)">—</div><div class="cerr">${c.err}</div><button class="card-del" onclick="removeTicker('${t.id}')">✕</button></div>`;
+        } else {
+          const dir = c.chg > 0 ? 'up' : c.chg < 0 ? 'dn' : '';
+          html += `<div class="card ${dir} fade">
+            <div class="cticker">${t.label}</div>
+            ${c.name ? `<div class="cname">${c.name}</div>` : ''}
+            <div class="cval">${c.value}</div>
+            ${chgBadge(c.chg)}
+            ${c.note ? `<div class="cnote">${c.note}</div>` : ''}
+            <button class="card-del" onclick="removeTicker('${t.id}')">✕</button>
+          </div>`;
+        }
+      });
+      html += `</div>`;
+    }
+  });
+
+  el.innerHTML = html;
+}
+
+// ── STATUS / REFRESH ──────────────────────────────────────────────
+function setStatus(s, t) {
+  document.getElementById('dot').className = 'dot'+(s==='ok'?'':s==='loading'?' loading':' error');
+  document.getElementById('stxt').textContent = t;
+}
+
+async function refreshAll() {
+  if (!tickers.length) return;
+  setStatus('loading','buscando...');
+  await loadGroup(tickers);
+  renderMain();
+  const now = new Date();
+  document.getElementById('lastUpdate').textContent = now.toLocaleString('pt-BR');
+  const hasErr = Object.values(cache).some(c => c.err && !c.err.includes('chave'));
+  setStatus(hasErr?'error':'ok', now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ── NOTÍCIAS VIA GROQ ────────────────────────────────────────────
+let newsLoaded = false;
+
+// Monta contexto dos ativos monitorados + cotações
+function buildTickerContext() {
+  return tickers.map(t => {
+    const c = cache[t.id];
+    const val = c && !c.err
+      ? `${c.value} (${c.chg != null ? (c.chg > 0 ? '+' : '') + Number(c.chg).toFixed(2) + '%' : '—'})`
+      : 'sem cotação';
+    return `${t.label} [${t.cat}]: ${val}`;
+  }).join('\n');
+}
+
+async function callGroq(prompt) {
+  const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + groqKey
+    },
+    body: JSON.stringify({
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      max_tokens: 1500,
+      temperature: 0.7,
+      messages: [
+        {
+          role: 'system',
+          content: 'Você é um assistente de mercado financeiro brasileiro. Retorne APENAS JSON puro e válido, sem markdown, sem backticks, sem texto adicional.'
+        },
+        { role: 'user', content: prompt }
+      ]
+    })
+  });
+  if (!r.ok) {
+    const err = await r.json();
+    throw new Error(err.error?.message || 'HTTP ' + r.status);
+  }
+  const d = await r.json();
+  return d.choices?.[0]?.message?.content || '';
+}
+
+async function loadNews(force = false) {
+  if (!tickers.length) return;
+  if (newsLoaded && !force) return;
+
+  const wrap = document.getElementById('newsWrap');
+  const list = document.getElementById('newsList');
+  const meta = document.getElementById('newsMeta');
+  wrap.style.display = '';
+
+  if (!groqKey) {
+    list.innerHTML = `<div class="news-empty">
+      Configure a chave Groq gratuita nas ⚙ Configurações.<br>
+      <a href="https://console.groq.com" target="_blank" style="color:var(--accent2)">console.groq.com</a> → API Keys → Create → sem cartão de crédito
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = '<div class="news-loading"><div class="spin"></div> Gerando notícias com Groq + Llama 4...</div>';
+  meta.textContent = '';
+
+  const today = new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+  const ctx = buildTickerContext();
+
+  const prompt = `Hoje é ${today}.
+
+Ativos monitorados pelo investidor:
+${ctx}
+
+Gere exatamente 6 notícias do mercado financeiro brasileiro, contextualizadas para esses ativos.
+Retorne APENAS este JSON, sem nenhum texto fora dele:
+
+{
+  "noticias": [
+    {
+      "titulo": "Título objetivo (máx 90 chars)",
+      "resumo": "2-3 frases com contexto e impacto para o investidor. Mencione os tickers relevantes.",
+      "categoria": "Macro|Ações|FIIs|Câmbio|Cripto|Juros|Internacional",
+      "sentimento": "positivo|negativo|neutro",
+      "tickers": ["TICKER1"]
+    }
+  ]
+}
+
+Regras: notícias realistas e variadas (positivas, negativas, neutras), em português brasileiro jornalístico.`;
+
+  try {
+    const text = await callGroq(prompt);
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+    const noticias = parsed.noticias || [];
+    if (!noticias.length) throw new Error('JSON sem notícias');
+
+    const COLORS = { positivo:'#2dd4a0', negativo:'#f05a5a', neutro:'#f0a05a' };
+    const CAT_COLORS = {
+      Macro:'#a78bfa', Ações:'#7ec8f0', FIIs:'#a0e0b0',
+      Câmbio:'#f090c0', Cripto:'#f0c070', Juros:'#c0b0f0', Internacional:'#f0a05a'
+    };
+
+    const now = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+    meta.textContent = `${noticias.length} notícias · Llama 4 via Groq · ${now}`;
+
+    list.innerHTML = noticias.map(n => {
+      const catColor = CAT_COLORS[n.categoria] || '#888';
+      const sentColor = COLORS[n.sentimento] || '#888';
+      const tags = (n.tickers || []).map(t => `<span class="news-ticker-tag">${t}</span>`).join('');
+      return `<div class="news-card fade">
+        <div class="news-top">
+          <span class="news-badge" style="background:${catColor}22;color:${catColor};border:1px solid ${catColor}44">${n.categoria}</span>
+          <div style="flex:1">
+            <div class="news-headline">${n.titulo}</div>
+            <div style="margin-top:3px">
+              <span style="font-size:10px;font-family:'DM Mono',monospace;padding:1px 6px;border-radius:3px;background:${sentColor}18;color:${sentColor};border:1px solid ${sentColor}33">${n.sentimento}</span>
+            </div>
+          </div>
+        </div>
+        <div class="news-body">${n.resumo}</div>
+        ${tags ? `<div class="news-tickers">${tags}</div>` : ''}
+      </div>`;
+    }).join('');
+
+    newsLoaded = true;
+  } catch(e) {
+    list.innerHTML = `<div class="news-empty">Erro ao gerar notícias: ${e.message.slice(0,100)}<br><button class="btn btn-sm btn-accent" onclick="loadNews(true)" style="margin-top:8px">Tentar novamente</button></div>`;
+  }
+}
+
+// ── INIT ──// ── INIT ──// ── INIT ──────────────────────────────────────────────────────────
+if (brapiKey) document.getElementById('brapiKey').value = brapiKey;
+if (groqKey)  document.getElementById('groqKey').value  = groqKey;
+updateCfgStatus();
+if (cfgOpen) {
+  document.getElementById('cfgBody').style.display = '';
+  document.getElementById('cfgArrow').className = 'cfg-arrow open';
+}
+renderChips();
+renderMain();
+refreshAll().then(() => loadNews());
+setInterval(refreshAll, 5 * 60 * 1000);
+setInterval(() => loadNews(true), 15 * 60 * 1000);
+</script>
+</body>
+</html>
