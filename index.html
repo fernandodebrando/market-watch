@@ -154,6 +154,36 @@
   .news-loading{display:flex;align-items:center;gap:10px;padding:20px;color:var(--muted);font-size:12px;font-family:'DM Mono',monospace}
   .news-empty{padding:20px;text-align:center;color:var(--dim);font-size:12px;font-family:'DM Mono',monospace;border:1px dashed var(--border);border-radius:10px}
 
+
+  /* ANÁLISE IA */
+  .analysis-wrap{margin-top:28px}
+  .analysis-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  .analysis-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px}
+  .analysis-title{display:flex;align-items:center;gap:8px}
+  .analysis-icon{width:28px;height:28px;background:var(--accent-bg);border:1px solid var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+  .analysis-label{font-size:12px;font-weight:600;color:var(--text)}
+  .analysis-meta{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace}
+  .analysis-body{padding:18px 20px;display:flex;flex-direction:column;gap:16px}
+  .analysis-section{}
+  .analysis-section-title{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+  .analysis-section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+  .analysis-text{font-size:13px;color:var(--text);line-height:1.7}
+  .analysis-recs{display:flex;flex-direction:column;gap:8px}
+  .analysis-rec{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-radius:8px;border:1px solid var(--border)}
+  .rec-signal{font-size:10px;font-weight:600;font-family:'DM Mono',monospace;padding:3px 8px;border-radius:4px;white-space:nowrap;flex-shrink:0;margin-top:1px}
+  .rec-comprar{background:rgba(45,212,160,.12);color:var(--up);border:1px solid rgba(45,212,160,.3)}
+  .rec-manter{background:rgba(240,160,90,.1);color:var(--warn);border:1px solid rgba(240,160,90,.3)}
+  .rec-cautela{background:rgba(240,90,90,.1);color:var(--dn);border:1px solid rgba(240,90,90,.3)}
+  .rec-body{}
+  .rec-ativo{font-size:12px;font-weight:600;color:var(--text);font-family:'DM Mono',monospace}
+  .rec-motivo{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.5}
+  .analysis-sentiment{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border-radius:8px}
+  .sentiment-label{font-size:12px;color:var(--muted)}
+  .sentiment-bar{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+  .sentiment-fill{height:100%;border-radius:3px;transition:width .4s ease}
+  .sentiment-val{font-size:12px;font-weight:500;font-family:'DM Mono',monospace;white-space:nowrap}
+  .analysis-loading{display:flex;align-items:center;gap:10px;padding:20px;color:var(--muted);font-size:12px;font-family:'DM Mono',monospace}
+  .analysis-empty{padding:20px;text-align:center;color:var(--dim);font-size:12px;font-family:'DM Mono',monospace;line-height:1.6}
   .toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px 16px;font-size:12px;font-family:'DM Mono',monospace;color:var(--text);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
   .toast.show{opacity:1}
 </style>
@@ -297,6 +327,29 @@
     </div>
   </div>
 
+
+  <!-- ANÁLISE IA -->
+  <div class="analysis-wrap" id="analysisWrap" style="display:none">
+    <div class="sec-head">
+      <span class="sec-label">Análise &amp; Recomendações</span>
+      <div class="sec-line"></div>
+      <button class="btn btn-sm btn-accent" onclick="loadAnalysis(true)" style="flex-shrink:0">↻ Atualizar</button>
+    </div>
+    <div class="analysis-box">
+      <div class="analysis-header">
+        <div class="analysis-title">
+          <div class="analysis-icon">✦</div>
+          <div>
+            <div class="analysis-label">Análise de mercado via Groq · Llama 4</div>
+            <div class="analysis-meta" id="analysisMeta">aguardando notícias...</div>
+          </div>
+        </div>
+      </div>
+      <div class="analysis-body" id="analysisBody">
+        <div class="analysis-loading"><div class="spin"></div> Aguardando carregamento das notícias...</div>
+      </div>
+    </div>
+  </div>
   <p class="disclaimer">
     Ações/FIIs via <a href="https://brapi.dev" target="_blank">brapi.dev</a> ·
     Câmbio via <a href="https://economia.awesomeapi.com.br" target="_blank">AwesomeAPI</a> (gratuito) ·
@@ -829,7 +882,149 @@ Regras: notícias realistas e variadas (positivas, negativas, neutras), em portu
   }
 }
 
-// ── INIT ──// ── INIT ──// ── INIT ──────────────────────────────────────────────────────────
+// ── ANÁLISE IA ────────────────────────────────────────────────────
+let analysisLoaded = false;
+let lastNewsContext = '';
+
+async function loadAnalysis(force = false) {
+  if (!tickers.length) return;
+  if (analysisLoaded && !force) return;
+
+  const wrap  = document.getElementById('analysisWrap');
+  const body  = document.getElementById('analysisBody');
+  const meta  = document.getElementById('analysisMeta');
+  wrap.style.display = '';
+
+  if (!groqKey) {
+    body.innerHTML = `<div class="analysis-empty">Configure a chave Groq nas ⚙ Configurações para ativar a análise.</div>`;
+    return;
+  }
+
+  body.innerHTML = '<div class="analysis-loading"><div class="spin"></div> Gerando análise com base em todos os dados do painel...</div>';
+  meta.textContent = 'processando...';
+
+  // Build full context
+  const today  = new Date().toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long', year:'numeric'});
+  const hora   = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+
+  // Cotações
+  const cotacoes = tickers.map(t => {
+    const c = cache[t.id];
+    const val = c && !c.err
+      ? `${c.value} (${c.chg != null ? (c.chg > 0 ? '+' : '') + Number(c.chg).toFixed(2) + '%' : '—'})`
+      : 'sem dados';
+    return `  ${t.label} [${t.cat}]: ${val}`;
+  }).join('\n');
+
+  // Macro
+  const macroItems = tickers.filter(t => t.src === 'bcb').map(t => {
+    const c = cache[t.id];
+    return `  ${t.bcbLabel || t.label}: ${c && !c.err ? c.value : 'sem dados'}`;
+  }).join('\n');
+
+  // Notícias (pega o texto do DOM se já carregou)
+  const newsEl = document.getElementById('newsList');
+  const newsText = newsEl
+    ? [...newsEl.querySelectorAll('.news-headline')].map(el => '  - ' + el.textContent).join('\n')
+    : '';
+
+  const prompt = `Hoje é ${today}, ${hora}.
+
+=== COTAÇÕES ATUAIS ===
+${cotacoes || 'Nenhuma cotação disponível'}
+
+=== INDICADORES MACRO ===
+${macroItems || 'Nenhum indicador macro monitorado'}
+
+=== NOTÍCIAS DO MOMENTO ===
+${newsText || 'Notícias ainda não carregadas'}
+
+Com base em todos esses dados acima, gere uma análise de mercado para um investidor pessoa física brasileiro.
+Retorne APENAS este JSON puro, sem markdown, sem backticks:
+
+{
+  "cenario": {
+    "titulo": "Título do momento (ex: 'Cautela com juros elevados' ou 'Janela de oportunidade em renda variável')",
+    "texto": "2-3 parágrafos descrevendo o cenário atual: o que está acontecendo no mercado, como os indicadores macro se relacionam com as cotações, e o tom geral baseado nas notícias. Seja direto e objetivo.",
+    "sentimento": "otimista|neutro|cauteloso|pessimista",
+    "score": 65
+  },
+  "recomendacoes": [
+    {
+      "ativo": "TICKER ou CATEGORIA (ex: PETR4, FIIs, Câmbio, Cripto)",
+      "sinal": "comprar|manter|cautela",
+      "motivo": "1-2 frases explicando o raciocínio baseado nos dados atuais"
+    }
+  ],
+  "aviso": "Lembrete curto sobre o caráter informativo da análise (1 linha)"
+}
+
+Regras:
+- Analise APENAS os ativos presentes nas cotações acima
+- Base as recomendações nos dados reais fornecidos (cotações + macro + notícias)
+- Seja equilibrado: nem excessivamente otimista nem alarmista
+- score: 0 = muito pessimista, 50 = neutro, 100 = muito otimista
+- Máximo de ${Math.min(tickers.length, 6)} recomendações, priorizando os ativos com maior variação`;
+
+  try {
+    const text = await callGroq(prompt);
+    const clean = text.replace(/\`\`\`json|\`\`\`/g, '').trim();
+    const d = JSON.parse(clean);
+
+    const SENT_COLORS = {
+      otimista:  { fill: '#2dd4a0', label: 'Otimista' },
+      neutro:    { fill: '#7c6af7', label: 'Neutro' },
+      cauteloso: { fill: '#f0a05a', label: 'Cauteloso' },
+      pessimista:{ fill: '#f05a5a', label: 'Pessimista' },
+    };
+    const sent   = SENT_COLORS[d.cenario?.sentimento] || SENT_COLORS.neutro;
+    const score  = Math.max(0, Math.min(100, d.cenario?.score ?? 50));
+    const sentColor = score >= 65 ? '#2dd4a0' : score >= 45 ? '#7c6af7' : score >= 30 ? '#f0a05a' : '#f05a5a';
+
+    const SINAL_CLS = { comprar: 'rec-comprar', manter: 'rec-manter', cautela: 'rec-cautela' };
+    const SINAL_LBL = { comprar: '▲ COMPRAR', manter: '● MANTER', cautela: '▼ CAUTELA' };
+
+    const recsHtml = (d.recomendacoes || []).map(r => {
+      const cls = SINAL_CLS[r.sinal] || 'rec-manter';
+      const lbl = SINAL_LBL[r.sinal] || r.sinal?.toUpperCase();
+      return `<div class="analysis-rec">
+        <span class="rec-signal ${cls}">${lbl}</span>
+        <div class="rec-body">
+          <div class="rec-ativo">${r.ativo}</div>
+          <div class="rec-motivo">${r.motivo}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    body.innerHTML = `
+      <div class="analysis-section">
+        <div class="analysis-section-title">Cenário atual</div>
+        <div class="analysis-sentiment">
+          <span class="sentiment-label">${sent.label}</span>
+          <div class="sentiment-bar"><div class="sentiment-fill" style="width:${score}%;background:${sentColor}"></div></div>
+          <span class="sentiment-val" style="color:${sentColor}">${score}/100</span>
+        </div>
+        <div class="analysis-text" style="margin-top:12px">${(d.cenario?.texto || '').replace(/\n/g,'<br>')}</div>
+      </div>
+      <div class="analysis-section">
+        <div class="analysis-section-title">Recomendações</div>
+        <div class="analysis-recs">${recsHtml}</div>
+      </div>
+      ${d.aviso ? `<div style="font-size:10px;color:var(--dim);font-family:'DM Mono',monospace;padding:10px 14px;background:var(--surface2);border-radius:6px;line-height:1.5">⚠ ${d.aviso}</div>` : ''}
+    `;
+
+    const now = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+    meta.textContent = `Llama 4 · ${now} · baseado em ${tickers.length} ativos`;
+    analysisLoaded = true;
+
+  } catch(e) {
+    body.innerHTML = `<div class="analysis-empty">Erro ao gerar análise: ${e.message.slice(0,100)}<br>
+      <button class="btn btn-sm btn-accent" onclick="loadAnalysis(true)" style="margin-top:8px">Tentar novamente</button></div>`;
+  }
+}
+
+
+// ── INIT ──────────────────────────────────────────────────────────
 if (brapiKey) document.getElementById('brapiKey').value = brapiKey;
 if (groqKey)  document.getElementById('groqKey').value  = groqKey;
 updateCfgStatus();
@@ -839,9 +1034,9 @@ if (cfgOpen) {
 }
 renderChips();
 renderMain();
-refreshAll().then(() => loadNews());
+refreshAll().then(() => loadNews().then(() => loadAnalysis()));
 setInterval(refreshAll, 5 * 60 * 1000);
-setInterval(() => loadNews(true), 15 * 60 * 1000);
+setInterval(() => loadNews(true).then(() => loadAnalysis(true)), 15 * 60 * 1000);
 </script>
 </body>
 </html>
