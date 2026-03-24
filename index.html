@@ -810,6 +810,7 @@ async function loadNews(force = false) {
       Configure a chave Groq gratuita nas ⚙ Configurações.<br>
       <a href="https://console.groq.com" target="_blank" style="color:var(--accent2)">console.groq.com</a> → API Keys → Create → sem cartão de crédito
     </div>`;
+    loadAnalysis();
     return;
   }
 
@@ -877,8 +878,10 @@ Regras: notícias realistas e variadas (positivas, negativas, neutras), em portu
     }).join('');
 
     newsLoaded = true;
+    loadAnalysis();
   } catch(e) {
     list.innerHTML = `<div class="news-empty">Erro ao gerar notícias: ${e.message.slice(0,100)}<br><button class="btn btn-sm btn-accent" onclick="loadNews(true)" style="margin-top:8px">Tentar novamente</button></div>`;
+    loadAnalysis();
   }
 }
 
@@ -889,6 +892,7 @@ let lastNewsContext = '';
 async function loadAnalysis(force = false) {
   if (!tickers.length) return;
   if (analysisLoaded && !force) return;
+  if (force) analysisLoaded = false;
 
   const wrap  = document.getElementById('analysisWrap');
   const body  = document.getElementById('analysisBody');
@@ -896,7 +900,11 @@ async function loadAnalysis(force = false) {
   wrap.style.display = '';
 
   if (!groqKey) {
-    body.innerHTML = `<div class="analysis-empty">Configure a chave Groq nas ⚙ Configurações para ativar a análise.</div>`;
+    body.innerHTML = `<div class="analysis-empty">
+      Configure a chave Groq nas ⚙ Configurações para ativar a análise com IA.<br>
+      <a href="https://console.groq.com" target="_blank" style="color:var(--accent2)">console.groq.com</a> → API Keys → Create → gratuito, sem cartão
+    </div>`;
+    meta.textContent = 'chave Groq não configurada';
     return;
   }
 
@@ -1071,9 +1079,9 @@ if (cfgOpen) {
 }
 renderChips();
 renderMain();
-refreshAll().then(() => loadNews().then(() => loadAnalysis()));
+refreshAll().then(() => loadNews());
 setInterval(refreshAll, 5 * 60 * 1000);
-setInterval(() => loadNews(true).then(() => loadAnalysis(true)), 15 * 60 * 1000);
+setInterval(() => loadNews(true), 15 * 60 * 1000);
 </script>
 </body>
 </html>
